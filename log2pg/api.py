@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, text
 from .database import get_db
 from .models import LogEntry
 from datetime import datetime
@@ -27,12 +27,12 @@ def get_stats_from_db(db: Session, customer_id: str, from_date: datetime):
         func.sum(case((LogEntry.status_code < 400, 1), else_=0)).label("successful_requests"),
         func.sum(case((LogEntry.status_code >= 400, 1), else_=0)).label("failed_requests"),
         func.avg(LogEntry.duration).label("avg_latency"),
-        func.percentile_cont(0.5).within_group(LogEntry.duration.desc()).label("median_latency"),
-        func.percentile_cont(0.99).within_group(LogEntry.duration.desc()).label("p99_latency")
+        func.percentile_cont(0.5).within_group(LogEntry.duration.asc()).label("median_latency"),
+        func.percentile_cont(0.99).within_group(LogEntry.duration.asc()).label("p99_latency")
     ).filter(
-        LogEntry.customer_id == customer_id,
+        LogEntry.customer_id == text(':customer_id'),
         LogEntry.timestamp >= from_date
-    ).first()
+    ).params(customer_id=customer_id).first()
 
 @app.get("/customers/{customer_id}/stats")
 def get_customer_stats(customer_id: str, from_date: str, db: Session = Depends(get_db)):
