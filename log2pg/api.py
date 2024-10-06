@@ -4,6 +4,7 @@ from sqlalchemy import func, case
 from .database import get_db
 from .models import LogEntry
 from datetime import datetime
+from .config import API_HOST, API_PORT
 
 app = FastAPI()
 
@@ -81,3 +82,7 @@ def get_customer_stats(customer_id: str, from_date: str, db: Session = Depends(g
         "median_latency": f"{stats.median_latency:.2f}ms" if stats.median_latency else None,
         "p99_latency": f"{stats.p99_latency:.2f}ms" if stats.p99_latency else None
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host=API_HOST, port=API_PORT)

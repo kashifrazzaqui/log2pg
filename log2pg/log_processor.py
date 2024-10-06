@@ -3,6 +3,8 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from .database import engine, SessionLocal
 from .models import LogEntry, Base
+from .config import DATE_FORMAT, BATCH_SIZE
+
 
 def parse_log_line(line: str) -> dict:
     """
@@ -19,14 +21,15 @@ def parse_log_line(line: str) -> dict:
             - status_code (int): The HTTP status code of the response.
             - duration (float): The duration of the request in milliseconds.
     """
-    parts = line.strip().split(' ')
+    parts = line.strip().split(" ")
     return {
-        'timestamp': datetime.strptime(f"{parts[0]} {parts[1]}", '%Y-%m-%d %H:%M:%S'),
-        'customer_id': parts[2],
-        'request_path': parts[3],
-        'status_code': int(parts[4]),
-        'duration': float(parts[5])
+        "timestamp": datetime.strptime(f"{parts[0]} {parts[1]}", DATE_FORMAT),
+        "customer_id": parts[2],
+        "request_path": parts[3],
+        "status_code": int(parts[4]),
+        "duration": float(parts[5]),
     }
+
 
 def process_log_file(file_path: str) -> None:
     """
@@ -45,29 +48,28 @@ def process_log_file(file_path: str) -> None:
 
     # Create database tables if they don't exist
     Base.metadata.create_all(bind=engine)
-    
-    with open(file_path, 'r') as f:
-        reader = csv.reader(f, delimiter=' ')
+
+    with open(file_path, "r") as f:
+        reader = csv.reader(f, delimiter=" ")
         db = SessionLocal()
         try:
             # Process log entries in batches for better performance
-            batch_size = 1000
             batch = []
             for row in reader:
                 log_entry = LogEntry(
-                    timestamp=datetime.strptime(f"{row[0]} {row[1]}", '%Y-%m-%d %H:%M:%S'),
+                    timestamp=datetime.strptime(f"{row[0]} {row[1]}", DATE_FORMAT),
                     customer_id=row[2],
                     request_path=row[3],
                     status_code=int(row[4]),
-                    duration=float(row[5])
+                    duration=float(row[5]),
                 )
                 batch.append(log_entry)
-                
-                if len(batch) >= batch_size:
+
+                if len(batch) >= BATCH_SIZE:
                     db.add_all(batch)
                     db.commit()
                     batch = []
-            
+
             # Add any remaining entries
             if batch:
                 db.add_all(batch)
@@ -77,6 +79,7 @@ def process_log_file(file_path: str) -> None:
             db.rollback()
         finally:
             db.close()
+
 
 if __name__ == "__main__":
     # Process the log file when the script is run directly
